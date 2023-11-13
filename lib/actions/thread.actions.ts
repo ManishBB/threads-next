@@ -5,6 +5,7 @@ import Thread from "../models/thread.model"
 import User from "../models/user.model"
 import { connectToDB } from "../mongoose"
 import Community from "../models/community.model"
+import { error } from "console"
 
 interface Params {
     text: string,
@@ -109,3 +110,42 @@ export async function fetchThreadById(threadId: string) {
       throw new Error("Unable to fetch thread");
     }
   }
+
+export async function addCommentToThread(
+  threadId: string,
+  commentText: string,
+  userId: string,
+  path: string,
+) {
+  connectToDB()
+
+  try {
+    //Find original thread by its id
+    const originalThread = await Thread.findById(threadId)
+
+    if(!originalThread){
+      throw new Error("Thread not found!")
+    }
+
+    // Create the new comment thread
+    const commentThread = new Thread({
+      text: commentText,
+      author: userId,
+      parentId: threadId, // Set the parentId to the original thread's ID
+    });
+
+    // Save the comment thread to the database
+    const savedCommentThread = await commentThread.save();
+
+    //Update original thread to include new comment
+    originalThread.children.push(savedCommentThread._id)
+
+    //save original thread
+    await originalThread.save()
+
+    revalidatePath(path)
+
+  } catch (error) {
+    console.log(error);
+  }
+}
